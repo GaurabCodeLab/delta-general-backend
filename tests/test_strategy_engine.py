@@ -188,8 +188,8 @@ async def test_strategy_engine_closes_all_positions_when_total_pnl_hits_threshol
     await asyncio.wait_for(engine.run(), timeout=0.5)
 
     assert len(fake_executor.closed) == 4
-    assert engine.state.action == "closing all positions"
-    assert engine.state.status == "overall pnl threshold reached"
+    assert engine.state.action == "closing all managed positions"
+    assert engine.state.status == "profit target reached"
     assert engine.state.trigger_pnl == pytest.approx(15.0)
 
 
@@ -225,7 +225,7 @@ async def test_strategy_engine_recovers_from_ratio_verification_errors() -> None
     await asyncio.wait_for(engine.run(), timeout=0.5)
 
     assert len(fake_executor.closed) == 2
-    assert engine.state.action == "closing all positions"
+    assert engine.state.action == "closing all managed positions"
 
 
 @pytest.mark.asyncio
@@ -260,7 +260,7 @@ async def test_strategy_engine_continues_when_ratio_monitoring_raises() -> None:
     await asyncio.wait_for(engine.run(), timeout=0.5)
 
     assert len(fake_executor.closed) == 2
-    assert engine.state.action == "closing all positions"
+    assert engine.state.action == "closing all managed positions"
 
 
 @pytest.mark.asyncio
@@ -330,5 +330,5 @@ async def test_strategy_engine_logs_and_continues_when_close_fails() -> None:
 
     await asyncio.wait_for(engine.run(), timeout=0.5)
 
-    assert engine.state.action == "closing all positions"
-    assert engine.state.status == "overall pnl threshold reached"
+    assert engine.state.action == "closing all managed positions"
+    assert engine.state.status == "profit target reached"
