@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 from collections import deque
+from contextlib import asynccontextmanager
 from threading import Lock
 from typing import Any
 
@@ -235,7 +236,19 @@ def build_strategy() -> StrategyEngine:
     return StrategyEngine(exchange, positions, executor, settings)
 
 
-app = FastAPI(title="Delta BTC Options API")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    setup_logging("INFO")
+    root_logger = logging.getLogger()
+    if log_handler not in root_logger.handlers:
+        root_logger.addHandler(log_handler)
+    logging.getLogger(__name__).info("Delta BTC Options API starting")
+    yield
+    logging.getLogger(__name__).info("Delta BTC Options API shutting down")
+    manager.stop()
+
+
+app = FastAPI(title="Delta BTC Options API", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -251,21 +264,6 @@ logging.getLogger().addHandler(log_handler)
 
 strategy = build_strategy()
 manager = BotManager(strategy)
-
-
-@app.on_event("startup")
-async def startup_event() -> None:
-    setup_logging("INFO")
-    root_logger = logging.getLogger()
-    if log_handler not in root_logger.handlers:
-        root_logger.addHandler(log_handler)
-    logging.getLogger(__name__).info("Delta BTC Options API starting")
-
-
-@app.on_event("shutdown")
-async def shutdown_event() -> None:
-    logging.getLogger(__name__).info("Delta BTC Options API shutting down")
-    manager.stop()
 
 
 @app.get("/health")
