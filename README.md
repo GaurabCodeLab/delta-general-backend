@@ -62,7 +62,6 @@ python -m src.main
 - `PNL_PROFIT_THRESHOLD_USD` (default: `10`)
 - `PNL_LOSS_THRESHOLD_USD` (default: `-20`; the configured magnitude is treated as the stop-loss amount)
 - `BTC_INDEX_PRICE_TRIGGER` (optional; closes positions when BTC index crosses the configured price)
-- `RATIO_SPREADS` is retained for compatibility but is not used by the general position manager.
 
 Heartbeat logs run on the same interval as `POLL_INTERVAL_SECONDS`.
 

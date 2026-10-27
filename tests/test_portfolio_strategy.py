@@ -101,7 +101,6 @@ def settings(
         poll_interval_seconds=0.0,
         profit_exit_threshold_usd=profit,
         loss_exit_threshold_usd=loss,
-        ratio_spreads=[2.0],
         log_level="INFO",
         ssl_verify=True,
         index_price_trigger=index_trigger,

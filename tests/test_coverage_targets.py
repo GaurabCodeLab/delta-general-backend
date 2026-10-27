@@ -149,7 +149,6 @@ def api_module(monkeypatch):
     monkeypatch.setenv("POLL_INTERVAL_SECONDS", "0")
     monkeypatch.setenv("PNL_PROFIT_THRESHOLD_USD", "10")
     monkeypatch.setenv("PNL_LOSS_THRESHOLD_USD", "-20")
-    monkeypatch.setenv("RATIO_SPREADS", "1:2")
     monkeypatch.setenv("LOG_LEVEL", "INFO")
 
     class FakeExchange:
@@ -187,21 +186,11 @@ async def test_exchange_client_runtime_paths_are_covered(fake_delta_client_modul
     assert await exchange.get_open_positions_raw() != []
     assert await exchange.get_position_size(1001) == pytest.approx(1.0)
 
-    products = await exchange.get_products_raw()
-    assert len(products) == 2
-
-    product = await exchange.get_product_by_symbol("BTC-240930-C-100000")
-    assert product is not None
-    assert product["id"] == 1001
-
     quote = await exchange.get_best_quote(1001)
     assert quote == Quote(best_bid=101.0, best_ask=102.0)
 
     order_resp = await exchange.place_market_order(1001, "buy", 1.0, reduce_only=False)
     assert order_resp["result"]["id"] == "ord-123"
-
-    order = await exchange.get_order("ord-123", product_id=1001)
-    assert order["id"] == "ord-123"
 
     legs = await exchange.parse_option_positions()
     assert len(legs) == 2
@@ -304,28 +293,6 @@ async def test_exchange_client_error_paths_and_fallbacks(fake_delta_client_modul
     with pytest.raises(ExchangeClientError):
         await exchange.get_best_quote(1001)
 
-    class FallbackProductsClient:
-        def request(self, *args, **kwargs):
-            if kwargs:
-                raise TypeError("query kwargs unsupported")
-            return FakeResponse({"success": True, "result": [{"id": 2001, "symbol": "BTC-240930-C-100000"}]})
-
-    exchange._client = FallbackProductsClient()
-    products = await exchange.get_products_raw()
-    assert products[0]["id"] == 2001
-
-    class FallbackSymbolClient:
-        def request(self, **kwargs):
-            if kwargs.get("query", {}).get("symbol"):
-                raise RuntimeError("direct lookup failed")
-            return FakeResponse({"success": True, "result": [{"id": 3001, "symbol": "BTC-240930-P-100000"}]})
-
-    exchange._client = FallbackSymbolClient()
-    product = await exchange.get_product_by_symbol("BTC-240930-P-100000")
-    assert product is not None
-    assert product["id"] == 3001
-
-
 @pytest.mark.asyncio
 async def test_exchange_client_covers_more_fallback_and_error_branches(fake_delta_client_module) -> None:
     exchange = DeltaExchangeClient("k", "s", "https://example.com")
@@ -368,24 +335,6 @@ async def test_exchange_client_covers_more_fallback_and_error_branches(fake_delt
     exchange._client = SizeEdgeClient()
     assert await exchange.get_position_size(5001) == pytest.approx(1.0)
 
-    class DirectProductClient:
-        def request(self, **kwargs):
-            if kwargs.get("query", {}).get("symbol"):
-                return FakeResponse({"success": True, "result": [{"id": 6001, "symbol": "BTC-240930-C-100000"}]})
-            raise RuntimeError("products unavailable")
-
-    exchange._client = DirectProductClient()
-    product = await exchange.get_product_by_symbol("BTC-240930-C-100000")
-    assert product is not None
-    assert product["id"] == 6001
-
-    class FailingProductScanClient:
-        def request(self, **kwargs):
-            raise RuntimeError("products unavailable")
-
-    exchange._client = FailingProductScanClient()
-    assert await exchange.get_product_by_symbol("BTC-240930-C-100000") is None
-
     class BadOrderClient:
         def place_order(self, **kwargs):
             return "not-a-dict"
@@ -393,22 +342,6 @@ async def test_exchange_client_covers_more_fallback_and_error_branches(fake_delt
     exchange._client = BadOrderClient()
     with pytest.raises(ExchangeClientError):
         await exchange.place_market_order(1001, "buy", 1.0, reduce_only=False)
-
-    class EmptyProductsClient:
-        def request(self, **kwargs):
-            return FakeResponse({"success": True, "result": []})
-
-    exchange._client = EmptyProductsClient()
-    with pytest.raises(ExchangeClientError):
-        await exchange.get_products_raw()
-
-    class EmptySymbolClient:
-        def request(self, **kwargs):
-            return FakeResponse({"success": True, "result": []})
-
-    exchange._client = EmptySymbolClient()
-    assert await exchange.get_product_by_symbol("") is None
-
 
 @pytest.mark.asyncio
 async def test_exchange_client_parse_option_positions_skips_invalid_entries(fake_delta_client_module) -> None:
@@ -595,43 +528,27 @@ def test_main_module_entrypoint_calls_uvicorn_run(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_position_manager_validation_paths_and_no_match_branch() -> None:
-    class EmptyExchange:
-        async def parse_option_positions(self):
-            return []
-
-    manager = PositionManager(EmptyExchange())
-
-    with pytest.raises(RuntimeError):
-        await manager.detect_ratio_spreads([])
-
+async def test_position_manager_marks_mixed_expiry_btc_options() -> None:
     class MixedExpiryExchange:
         async def parse_option_positions(self):
             return [
-                OptionLeg(1, "CALL-LONG", "call", 100.0, datetime(2026, 1, 1, tzinfo=timezone.utc), 1.0, 100.0, 1.0),
-                OptionLeg(2, "CALL-SHORT", "call", 100.0, datetime(2026, 1, 2, tzinfo=timezone.utc), -2.0, 100.0, 1.0),
+                OptionLeg(1, "BTC-CALL-LONG", "call", 100.0, datetime(2026, 1, 1, tzinfo=timezone.utc), 1.0, 100.0, 1.0),
+                OptionLeg(2, "BTC-PUT-SHORT", "put", 95.0, datetime(2026, 1, 2, tzinfo=timezone.utc), -2.0, 100.0, 1.0),
             ]
 
+        async def get_best_quote(self, product_id: int, symbol: str | None = None):
+            return Quote(best_bid=101.0, best_ask=102.0)
+
     manager = PositionManager(MixedExpiryExchange())
-    with pytest.raises(RuntimeError):
-        await manager.detect_ratio_spreads([2.0])
+    legs = await manager.exchange.parse_option_positions()
+
+    assert await manager.compute_unrealized_leg_pnl(legs[0]) == pytest.approx(1.0)
+    assert await manager.compute_unrealized_leg_pnl(legs[1]) == pytest.approx(-4.0)
 
 
 def test_api_status_includes_ratio_state_details(api_module) -> None:
-    api_module.manager.strategy.state.call_ratio_state = SimpleNamespace(
-        status_message="monitoring call",
-        action="monitoring call ratio",
-        trigger_pnl=3.5,
-    )
-    api_module.manager.strategy.state.put_ratio_state = SimpleNamespace(
-        status_message="monitoring put",
-        action="monitoring put ratio",
-        trigger_pnl=-2.0,
-    )
-
     status = api_module.manager.status()
-    assert status["strategy_state"]["call_ratio"]["trigger_pnl"] == pytest.approx(3.5)
-    assert status["strategy_state"]["put_ratio"]["action"] == "monitoring put ratio"
+    assert status["strategy_state"]["action"] == "waiting for BTC option positions"
 
 
 def test_json_log_handler_formats_payloads_and_limits_history() -> None:
@@ -768,8 +685,6 @@ async def test_bot_manager_start_stop_state_transitions() -> None:
             self.run = noop
             self.exchange = None
             self.state = SimpleNamespace(
-                call_ratio_state=None,
-                put_ratio_state=None,
                 last_index_price=None,
                 status_message="",
                 action="",

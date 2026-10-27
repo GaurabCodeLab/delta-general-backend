@@ -123,97 +123,6 @@ class DeltaExchangeClient:
                 continue
         return 0.0
 
-    async def get_products_raw(self) -> List[Dict[str, Any]]:
-        # delta-rest-client 1.0.13 does not expose get_products.
-        # This endpoint can be paginated; collect multiple pages so strikes are not missed.
-        collected: List[Dict[str, Any]] = []
-        seen_ids: set[int] = set()
-
-        for page in range(1, 31):
-            try:
-                resp = await self._call(
-                    "request",
-                    method="GET",
-                    path="/v2/products",
-                    query={"page_size": 1000, "page_number": page},
-                    auth=True,
-                )
-            except TypeError:
-                # Fallback for clients that don't support query kwargs here.
-                if page > 1:
-                    break
-                resp = await self._call("request", method="GET", path="/v2/products", auth=True)
-
-            payload = await asyncio.to_thread(resp.json)
-            if not payload.get("success"):
-                break
-
-            result = payload.get("result") or []
-            if not isinstance(result, list) or not result:
-                break
-
-            new_count = 0
-            for p in result:
-                try:
-                    pid = int(p.get("id")) if p.get("id") is not None else None
-                except Exception:
-                    pid = None
-
-                if pid is not None:
-                    if pid in seen_ids:
-                        continue
-                    seen_ids.add(pid)
-
-                collected.append(p)
-                new_count += 1
-
-            # Stop if this page had no new products after de-dup.
-            if new_count == 0:
-                break
-
-        if collected:
-            return collected
-        raise ExchangeClientError("Unexpected products response shape")
-
-    async def get_product_by_symbol(self, symbol: str) -> Optional[Dict[str, Any]]:
-        target = (symbol or "").strip()
-        if not target:
-            return None
-
-        # Attempt direct filtered request first.
-        try:
-            resp = await self._call(
-                "request",
-                method="GET",
-                path="/v2/products",
-                query={"symbol": target},
-                auth=True,
-            )
-            payload = await asyncio.to_thread(resp.json)
-            if payload.get("success"):
-                result = payload.get("result") or []
-                if isinstance(result, list):
-                    for p in result:
-                        sym = str(p.get("symbol"))
-                        if sym == target:
-                            return p
-                    if len(result) == 1:
-                        return result[0]
-        except Exception:
-            pass
-
-        # Fallback: scan cached/paginated product list.
-        try:
-            products = await self.get_products_raw()
-            for p in products:
-                sym = str(p.get("symbol"))
-                if sym == target:
-                    return p
-        except Exception:
-            return None
-
-        return None
-
     async def get_best_quote(self, product_id: int, symbol: str | None = None) -> Quote:
         errors = []
         try:
@@ -257,18 +166,6 @@ class DeltaExchangeClient:
         if not isinstance(resp, dict):
             raise ExchangeClientError("Unexpected place_order response")
         return resp
-
-    async def get_order(self, order_id: str, product_id: Optional[int] = None) -> Dict[str, Any]:
-        query: Dict[str, Any] = {"id": order_id}
-        if product_id is not None:
-            query["product_id"] = product_id
-        resp = await self._call("order_history", query=query, page_size=1)
-
-        if isinstance(resp, dict):
-            result = resp.get("result")
-            if isinstance(result, list) and result:
-                return result[0]
-        return {}
 
     async def get_recent_fills(self, product_id: Optional[int] = None, limit: int = 500) -> List[Dict[str, Any]]:
         if limit <= 0:

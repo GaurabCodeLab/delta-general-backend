@@ -4,18 +4,6 @@ import importlib
 
 import pytest
 
-from src.config import _parse_ratio_list
-
-
-def test_parse_ratio_list_accepts_mixed_formats() -> None:
-    assert _parse_ratio_list("1:2,1:3,5") == [2.0, 3.0, 5.0]
-
-
-def test_parse_ratio_list_raises_for_empty_input() -> None:
-    with pytest.raises(ValueError):
-        _parse_ratio_list("")
-
-
 def test_load_settings_reads_env(monkeypatch) -> None:
     monkeypatch.setenv("DELTA_API_KEY", "key")
     monkeypatch.setenv("DELTA_API_SECRET", "secret")
@@ -24,7 +12,6 @@ def test_load_settings_reads_env(monkeypatch) -> None:
     monkeypatch.setenv("POLL_INTERVAL_SECONDS", "3")
     monkeypatch.setenv("PNL_PROFIT_THRESHOLD_USD", "12")
     monkeypatch.setenv("PNL_LOSS_THRESHOLD_USD", "-8")
-    monkeypatch.setenv("RATIO_SPREADS", "1:2,1:3")
     monkeypatch.setenv("LOG_LEVEL", "DEBUG")
     monkeypatch.setenv("BTC_INDEX_PRICE_TRIGGER", "70000")
 
@@ -41,7 +28,6 @@ def test_load_settings_reads_env(monkeypatch) -> None:
     assert settings.poll_interval_seconds == 3.0
     assert settings.profit_exit_threshold_usd == 12.0
     assert settings.loss_exit_threshold_usd == -8.0
-    assert settings.ratio_spreads == [2.0, 3.0]
     assert settings.log_level == "DEBUG"
     assert settings.index_price_trigger == 70000.0
 

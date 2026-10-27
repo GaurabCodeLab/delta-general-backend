@@ -9,37 +9,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def _parse_ratio_list(raw: str) -> list[float]:
-    ratios: list[float] = []
-    for token in (raw or "").split(","):
-        token = token.strip()
-        if not token:
-            continue
-
-        if ":" in token:
-            left, right = token.split(":", 1)
-            try:
-                left_value = float(left.strip())
-                right_value = float(right.strip())
-            except ValueError:
-                continue
-            if left_value <= 0 or right_value <= 0:
-                continue
-            ratios.append(right_value / left_value)
-            continue
-
-        try:
-            ratios.append(float(token))
-        except ValueError:
-            continue
-
-    if not ratios:
-        raise ValueError(
-            "RATIO_SPREADS must contain at least one ratio, e.g. '1:2' or '2,3,5'."
-        )
-    return ratios
-
-
 @dataclass(slots=True)
 class Settings:
     api_key: str
@@ -48,7 +17,6 @@ class Settings:
     poll_interval_seconds: float
     profit_exit_threshold_usd: float
     loss_exit_threshold_usd: float
-    ratio_spreads: list[float]
     log_level: str
     ssl_verify: bool
     index_price_trigger: float | None = None
@@ -67,7 +35,6 @@ def load_settings() -> Settings:
         poll_interval_seconds=float(os.getenv("POLL_INTERVAL_SECONDS", "2")),
         profit_exit_threshold_usd=float(os.getenv("PNL_PROFIT_THRESHOLD_USD", "10")),
         loss_exit_threshold_usd=float(os.getenv("PNL_LOSS_THRESHOLD_USD", "-20")),
-        ratio_spreads=_parse_ratio_list(os.getenv("RATIO_SPREADS", "1:2")),
         log_level=os.getenv("LOG_LEVEL", "INFO"),
         ssl_verify=os.getenv("DELTA_SSL_VERIFY", "false").strip().lower() in {"1", "true", "yes", "y"},
         index_price_trigger=(

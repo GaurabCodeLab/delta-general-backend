@@ -1,6 +1,5 @@
 delta-rest-client>=1.0.14
 tenacity
-pydantic>=2
 python-dotenv
 requests
 fastapi>=0.110.0

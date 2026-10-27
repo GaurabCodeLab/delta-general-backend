@@ -20,11 +20,3 @@ class OptionLeg:
 class Quote:
     best_bid: float
     best_ask: float
-
-
-@dataclass(slots=True)
-class RatioSpread:
-    long_leg: OptionLeg
-    short_leg: OptionLeg
-    short_leg_each_qty: float
-    ratio: float

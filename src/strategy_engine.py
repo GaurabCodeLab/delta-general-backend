@@ -15,19 +15,10 @@ LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
-class RatioState:
-    """Track state for a single ratio spread."""
-    ratio_id: str  # "call" or "put"
-    status_message: str = "monitoring"
-    action: str = "monitoring ratio-spread"
-    trigger_pnl: Optional[float] = None
-
-
-@dataclass(slots=True)
 class StrategyState:
     last_index_price: Optional[float] = None
     status_message: str = "starting"
-    action: str = "waiting for ratio spreads"
+    action: str = "waiting for BTC option positions"
     status: str = "initializing"
     trigger_price: Optional[str] = None
     trigger_pnl: Optional[float] = None
@@ -36,8 +27,6 @@ class StrategyState:
     combined_pnl_total: float = 0.0
     tracked_product_ids: set[int] = field(default_factory=set)
     previous_open_legs: Optional[list[OptionLeg]] = None
-    call_ratio_state: Optional[RatioState] = None
-    put_ratio_state: Optional[RatioState] = None
 
 
 class StrategyEngine:

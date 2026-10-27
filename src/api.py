@@ -166,7 +166,6 @@ class BotManager:
             "profit_exit_threshold_usd": self.strategy.settings.profit_exit_threshold_usd,
             "loss_exit_threshold_usd": self.strategy.settings.loss_exit_threshold_usd,
             "index_price_trigger": self.strategy.settings.index_price_trigger,
-            "allowed_ratio_spreads": self.strategy.settings.ratio_spreads,
             "position_count": len(positions),
             "positions": positions,
             "strategy_state": self.status()["strategy_state"],
@@ -182,23 +181,6 @@ class BotManager:
     def status(self) -> dict[str, Any]:
         with self._lock:
             running = self._task is not None and not self._task.done()
-        
-        # Build call and put ratio states
-        call_ratio_state = None
-        if self.strategy.state.call_ratio_state is not None:
-            call_ratio_state = {
-                "status": self.strategy.state.call_ratio_state.status_message,
-                "action": self.strategy.state.call_ratio_state.action,
-                "trigger_pnl": self.strategy.state.call_ratio_state.trigger_pnl,
-            }
-        
-        put_ratio_state = None
-        if self.strategy.state.put_ratio_state is not None:
-            put_ratio_state = {
-                "status": self.strategy.state.put_ratio_state.status_message,
-                "action": self.strategy.state.put_ratio_state.action,
-                "trigger_pnl": self.strategy.state.put_ratio_state.trigger_pnl,
-            }
         
         return {
             "running": running,
@@ -216,9 +198,6 @@ class BotManager:
                 "profit_exit_threshold_usd": self.strategy.settings.profit_exit_threshold_usd,
                 "loss_exit_threshold_usd": self.strategy.settings.loss_exit_threshold_usd,
                 "index_price_trigger": self.strategy.settings.index_price_trigger,
-                "allowed_ratio_spreads": self.strategy.settings.ratio_spreads,
-                "call_ratio": call_ratio_state,
-                "put_ratio": put_ratio_state,
             },
         }
 

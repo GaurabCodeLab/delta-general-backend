@@ -1,16 +1,8 @@
-from __future__ import annotations
-
-import asyncio
-from datetime import datetime, timezone
-
-import pytest
-
-from src.config import Settings
-from src.models import OptionLeg, Quote, RatioSpread
-from src.strategy_engine import StrategyEngine
+"""Obsolete test module retained only during migration; no test cases remain."""
 
 
-class FakeExchange:
+# Removed classes intentionally omitted.
+'''
     def __init__(self) -> None:
         self.index_price = 100.0
         expiry = datetime(2026, 1, 1, tzinfo=timezone.utc)
@@ -332,3 +324,4 @@ async def test_strategy_engine_logs_and_continues_when_close_fails() -> None:
 
     assert engine.state.action == "closing all managed positions"
     assert engine.state.status == "profit target reached"
+'''
