@@ -154,9 +154,19 @@ class BotManager:
             realized_pnl,
             combined_pnl,
         )
-        
+
+        status = self.status()
+        strategy_state = status["strategy_state"]
+        tracked_product_ids = strategy_state["tracked_product_ids"]
+
         return {
+            "running": status["running"],
             "index_price": index_price,
+            "last_index_price": self.strategy.state.last_index_price,
+            "strategy_action": self.strategy.state.action,
+            "strategy_status": self.strategy.state.status,
+            "strategy_status_message": self.strategy.state.status_message,
+            "tracked_product_ids": tracked_product_ids,
             "unrealized_pnl": total_pnl,
             "realized_pnl": realized_pnl,
             "combined_pnl": combined_pnl,
@@ -168,7 +178,7 @@ class BotManager:
             "index_price_trigger": self.strategy.settings.index_price_trigger,
             "position_count": len(positions),
             "positions": positions,
-            "strategy_state": self.status()["strategy_state"],
+            "strategy_state": strategy_state,
         }
 
     def stop(self) -> dict[str, Any]:
@@ -181,24 +191,33 @@ class BotManager:
     def status(self) -> dict[str, Any]:
         with self._lock:
             running = self._task is not None and not self._task.done()
-        
+
+        tracked_product_ids = sorted(self.strategy.state.tracked_product_ids)
+        strategy_state = {
+            "last_index_price": self.strategy.state.last_index_price,
+            "status_message": self.strategy.state.status_message,
+            "action": self.strategy.state.action,
+            "status": self.strategy.state.status,
+            "trigger_price": self.strategy.state.trigger_price,
+            "trigger_pnl": self.strategy.state.trigger_pnl,
+            "realized_pnl": self.strategy.state.realized_pnl_total,
+            "realized_pnl_total": self.strategy.state.realized_pnl_total,
+            "unrealized_pnl": self.strategy.state.unrealized_pnl_total,
+            "combined_pnl": self.strategy.state.combined_pnl_total,
+            "profit_exit_threshold_usd": self.strategy.settings.profit_exit_threshold_usd,
+            "loss_exit_threshold_usd": self.strategy.settings.loss_exit_threshold_usd,
+            "index_price_trigger": self.strategy.settings.index_price_trigger,
+            "tracked_product_ids": tracked_product_ids,
+        }
+
         return {
             "running": running,
-            "strategy_state": {
-                "last_index_price": self.strategy.state.last_index_price,
-                "status_message": self.strategy.state.status_message,
-                "action": self.strategy.state.action,
-                "status": self.strategy.state.status,
-                "trigger_price": self.strategy.state.trigger_price,
-                "trigger_pnl": self.strategy.state.trigger_pnl,
-                "realized_pnl": self.strategy.state.realized_pnl_total,
-                "realized_pnl_total": self.strategy.state.realized_pnl_total,
-                "unrealized_pnl": self.strategy.state.unrealized_pnl_total,
-                "combined_pnl": self.strategy.state.combined_pnl_total,
-                "profit_exit_threshold_usd": self.strategy.settings.profit_exit_threshold_usd,
-                "loss_exit_threshold_usd": self.strategy.settings.loss_exit_threshold_usd,
-                "index_price_trigger": self.strategy.settings.index_price_trigger,
-            },
+            "tracked_product_ids": tracked_product_ids,
+            "last_index_price": self.strategy.state.last_index_price,
+            "strategy_action": self.strategy.state.action,
+            "strategy_status": self.strategy.state.status,
+            "strategy_status_message": self.strategy.state.status_message,
+            "strategy_state": strategy_state,
         }
 
 
